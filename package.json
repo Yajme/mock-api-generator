@@ -1,0 +1,9 @@
+{
+  "name": "SchemaCraft",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel --filter '*' run dev"
+  },
+  "packageManager": "pnpm@10.33.0"
+}

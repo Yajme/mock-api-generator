@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { isExistingFakerType } from "#src/utils/fakerTypes";
-export const schemaFieldValidationSchema = z.object({
+const makeSchemaFieldValidationSchema = (isValidFakerType: (fakerType: string) => boolean,) => z.object({
   name: z.string().trim().min(1, "Field name is required"),
   fakerType: z
     .string()
@@ -11,7 +11,8 @@ export const schemaFieldValidationSchema = z.object({
     }),
   options: z.unknown().optional(),
 });
-
+ const schemaFieldValidationSchema =
+   makeSchemaFieldValidationSchema(isExistingFakerType);
 export const createSchemaValidationSchema = z
   .object({
     name: z.string().trim().min(1, "Schema name is required"),

@@ -7,6 +7,7 @@ import {
   InvalidDataError,
 } from "../utils/index.js";
 import * as endpointService from "../services/endpointService.js";
+import { ICreateEndpointParams } from "#src/types/endpoint";
 
 type Params = {};
 type ResBody = {};
@@ -17,14 +18,6 @@ type ReqQuery = {
   filterBy: string;
 };
 
-interface CreateEndpointParams {
-  ownerId: string;
-  schemaId: string;
-  name: string;
-  version: string;
-  ttlSeconds?: number;
-  count?: number;
-}
 
 export const getSchema: RequestHandler<
   Params,
@@ -65,7 +58,6 @@ export const createUserSchema = async (
       owner_id: userId,
       is_preset: is_preset,
     });
-    console.log(userSchema);
     res.locals.status = HttpStatus.CREATED;
     res.locals.message = "Schema Created Successfully";
     res.locals.data = { userSchema };
@@ -105,7 +97,7 @@ export const createEndpoint = async (
       throw new NotFoundError("Endpoint field must be filled");
     }
 
-    const endPointParam: CreateEndpointParams = {
+    const endPointParam: ICreateEndpointParams = {
       ownerId: userId,
       schemaId,
       name: endpoint,

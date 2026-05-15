@@ -7,15 +7,8 @@ import {
   NotFoundError,
   InvalidDataError,
 } from "../utils/index";
+import type { IEndpoint,ICreateEndpointParams } from "#src/types/endpoint";
 
-interface ICreateEndpointParams {
-  ownerId: string;
-  schemaId: string;
-  name: string;
-  version: string;
-  ttlSeconds: number;
-  count?: number;
-}
 
 interface ISchemaField {
   name: string;
@@ -23,16 +16,7 @@ interface ISchemaField {
   options?: any;
 }
 
-interface IEndpoint {
-  id: string;
-  owner_id: string;
-  schema_id: string;
-  name: string;
-  version: string;
-  cached_data: any;
-  ttl_seconds: number;
-  ttl_expires_at: string; // ISO date string
-}
+
 const createEndpointValidation = z.object({
   name: z.string().trim().min(1, "Endpoint Name is required"),
   version: z.string().trim(),

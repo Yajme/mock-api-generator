@@ -1,9 +1,9 @@
 // services/schemaService.ts
 import { connection } from "#src/config/database";
+import { createSchemaValidationSchema } from "#src/schema/mockDataSchema";
 import { InvalidDataError } from "#src/utils/";
-import { isExistingFakerType } from "#src/utils/fakerTypes";
 
-import * as z from "zod";
+
 
 interface ISchemaField {
   name: string;
@@ -19,49 +19,11 @@ interface ISchema {
   owner_id: string | null;
 }
 
-const schemaFieldValidationSchema = z.object({
-  name: z.string().trim().min(1, "Field name is required"),
-  fakerType: z
-    .string()
-    .trim()
-    .min(1, "fakerType is required")
-    .refine((fakerType) => isExistingFakerType(fakerType), {
-      message: "Invalid fakerType",
-    }),
-  options: z.unknown().optional(),
-});
-
-const createSchemaValidationSchema = z
-  .object({
-    name: z.string().trim().min(1, "Schema name is required"),
-    is_preset: z.boolean(),
-    fields: z
-      .array(schemaFieldValidationSchema)
-      .min(1, "At least one schemaSchema Validation field is required"),
-    owner_id: z.uuidv4().nullable(),
-  })
-  .superRefine(({ is_preset, owner_id }, context) => {
-    if (is_preset && owner_id !== null) {
-      context.addIssue({
-        code: "custom",
-        path: ["owner_id"],
-        message: "Preset schemas must not include owner_id",
-      });
-    }
-
-    if (!is_preset && owner_id === null) {
-      context.addIssue({
-        code: "custom",
-        path: ["owner_id"],
-        message: "Non-preset schemas must include owner_id",
-      });
-    }
-  });
 
 const SCHEMA_FILTER_COLUMNS = {
   name: "name",
 } as const;
-
+/// returns rows 
 export const getAllSchemas = async (
   userId: string,
   filter?: string,
@@ -103,7 +65,7 @@ export const createSchema = async ({
   fields,
   owner_id,
 }: ISchema): Promise<ISchema> => {
-  console.log("owner_id: ", owner_id);
+
   const validationResult = createSchemaValidationSchema.safeParse({
     name,
     is_preset,

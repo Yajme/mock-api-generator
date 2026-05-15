@@ -8,6 +8,9 @@ import {
 } from "../utils/index.js";
 import * as endpointService from "../services/endpointService.js";
 import { ICreateEndpointParams } from "#src/types/endpoint";
+import { createSchemaValidationSchema } from "#src/schema/mockDataSchema";
+import { DatabaseError } from "pg";
+import { CreateEndpointBody, createEndpointSchema } from "#src/schema/endpointSchema";
 
 type Params = {};
 type ResBody = {};
@@ -18,23 +21,49 @@ type ReqQuery = {
   filterBy: string;
 };
 
-
 export const getSchema: RequestHandler<
   Params,
   ResBody,
   ReqBody,
   ReqQuery
 > = async (req, res, next) => {
+  const SCHEMA_FILTER_COLUMNS = {
+    name: "name",
+  } as const;
   try {
     let userId = req.user?.id;
-    const { filter, filterBy } = req.query;
+    let { filter, filterBy } = req.query;
 
     if (!userId) {
       throw new NotFoundError("User ID is required");
     }
+    
+
+    const hasFilter = "filter" in req.query;
+    const hasFilterBy = "filterBy" in req.query;
+
+    if (!hasFilter && !hasFilterBy) {
+      // no query params: allowed
+    } else {
+      if (!hasFilter || !hasFilterBy) {
+        throw new InvalidDataError(
+          "filter and filterBy must be provided together",
+        );
+      }
+
+      const filter = String(req.query.filter).trim();
+      const filterBy = String(req.query.filterBy).trim();
+
+      if (!filter) throw new InvalidDataError("Filter value is required");
+      if (!(filterBy in SCHEMA_FILTER_COLUMNS)) {
+        throw new InvalidDataError(`Invalid filterBy value: ${filterBy}`);
+      }
+    }
 
     const schemas = await getAllSchemas(userId, filter, filterBy);
-
+    if(schemas.length == 0) {
+      throw new NotFoundError(`No schema found`);
+    }
     res.locals.data = { schemas };
     res.locals.message = "Schema Successfully retrieved";
     next();
@@ -52,38 +81,54 @@ export const createUserSchema = async (
     const { fields: schema, schemaName, is_preset } = req.body;
     // fields is an array check if the fields is not an array
     const userId = req.user?.id;
-    const userSchema = await createSchema({
+    const userSchemaObject = {
       fields: schema,
       name: schemaName,
       owner_id: userId,
       is_preset: is_preset,
-    });
+    }
+    const validationResult = createSchemaValidationSchema.safeParse(userSchemaObject);
+
+  if (!validationResult.success) {
+    const validationMessage = validationResult.error.issues
+      .map(({ path, message }) => {
+        const issuePath = path.length > 0 ? path.join(".") : "input";
+        return `${issuePath}: ${message}`;
+      })
+      .join(", ");
+
+    throw new InvalidDataError(validationMessage);
+  }
+    const userSchema = await createSchema(userSchemaObject);
+    
     res.locals.status = HttpStatus.CREATED;
     res.locals.message = "Schema Created Successfully";
     res.locals.data = { userSchema };
     next();
-  } catch (error) {
-    next(error);
+  } 
+  catch (error) {
+    
+   next(error);
   }
 };
 
 // Testing purposes
-export const generateMockdata = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> => {
-  try {
-    const userId = req.user?.id || "default";
-    const schemas = await getAllSchemas(userId);
-    const cachedData = generateMockData(schemas[0].fields, 10);
-    res.locals.data = cachedData;
-    next();
-  } catch (error) {
-    console.log(error);
-    next(error);
-  }
-};
+// export const generateMockdata = async (
+//   req: Request,
+//   res: Response,
+//   next: NextFunction,
+// ): Promise<void> => {
+//   try {
+//     const userId = req.user?.id || "default";
+//     const schemas = await getAllSchemas(userId);
+//     const cachedData = generateMockData(schemas[0].fields, 10);
+//     res.locals.data = cachedData;
+//     next();
+//   } catch (error) {
+//     console.log(error);
+//     next(error);
+//   }
+// };
 
 export const createEndpoint = async (
   req: Request,
@@ -96,8 +141,8 @@ export const createEndpoint = async (
     if (!endpoint) {
       throw new NotFoundError("Endpoint field must be filled");
     }
-
-    const endPointParam: ICreateEndpointParams = {
+    //validate fields here
+    const endPointParam: CreateEndpointBody = {
       ownerId: userId,
       schemaId,
       name: endpoint,
@@ -105,6 +150,18 @@ export const createEndpoint = async (
       ttlSeconds: req.body.ttlSecond,
       count,
     };
+      const validationResult = createEndpointSchema.safeParse(endPointParam);
+    
+      if (!validationResult.success) {
+        const validationMessage = validationResult.error.issues
+          .map(({ path, message }) => {
+            const issuePath = path.length > 0 ? path.join(".") : "input";
+            return `${issuePath}: ${message}`;
+          })
+          .join(", ");
+    
+        throw new InvalidDataError(validationMessage);
+      }
 
     const userEndpoint =
       await endpointService.createUserEndpoint(endPointParam);

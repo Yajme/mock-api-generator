@@ -1,30 +1,16 @@
 // services/endpointService.ts
-import { connection, pool } from "../config/database";
-import * as z from "zod";
+import { connection, pool } from "#src/config/database";
+import type { ISchemaField } from "#src/types";
 import {
   generateMockData,
   withTransaction,
   NotFoundError,
-  InvalidDataError,
-} from "../utils/index";
-import type { IEndpoint,ICreateEndpointParams } from "#src/types/endpoint";
+} from "#src/utils/index";
+import type { IEndpoint  } from "#src/types/endpoint";
+import { CreateEndpointBody, UserGeneratedEndpoint } from "#src/schema";
 
 
-interface ISchemaField {
-  name: string;
-  fakerType: string;
-  options?: any;
-}
 
-
-const createEndpointValidation = z.object({
-  name: z.string().trim().min(1, "Endpoint Name is required"),
-  version: z.string().trim(),
-  ownerId: z.uuidv4(),
-  schemaId: z.uuidv4(),
-  ttlSeconds: z.number(),
-  count: z.number(),
-});
 export const createUserEndpoint = async ({
   ownerId,
   schemaId,
@@ -32,27 +18,8 @@ export const createUserEndpoint = async ({
   version,
   ttlSeconds,
   count,
-}: ICreateEndpointParams): Promise<IEndpoint> => {
-  //validate fields here
-  const validationResult = createEndpointValidation.safeParse({
-    ownerId,
-    name,
-    version,
-    schemaId,
-    ttlSeconds,
-    count,
-  });
-
-  if (!validationResult.success) {
-    const validationMessage = validationResult.error.issues
-      .map(({ path, message }) => {
-        const issuePath = path.length > 0 ? path.join(".") : "input";
-        return `${issuePath}: ${message}`;
-      })
-      .join(", ");
-
-    throw new InvalidDataError(validationMessage);
-  }
+}: CreateEndpointBody): Promise<IEndpoint> => {
+  
   const { rows: schemaRows } = await connection.query(
     `SELECT fields FROM schemas WHERE id = $1`,
     [schemaId],
@@ -85,17 +52,13 @@ export const createUserEndpoint = async ({
   });
 };
 
-interface IUserEndpoint {
-  username: string;
-  endpoint: string;
-  version: string;
-}
+
 export const userGeneratedEndpoint = async ({
   username,
   endpoint,
   version,
-}: IUserEndpoint) => {
-  try {
+}: UserGeneratedEndpoint) => {
+  
     //retrieve owner id  based on API KEY
     //select the api key first then the column of owner id
     //store it and use it as parameter to select the endpoint and its data from the table
@@ -103,5 +66,6 @@ export const userGeneratedEndpoint = async ({
     //so I think this is
     //SELECT user.userId FROM user JOIN api_key ON user.userId = api_key.ownerId WHERE user.username = $1 LIMIT 1
     //  SELECT users.id FROM users  JOIN api_keys ON users.id = api_keys.user_id WHERE users.username = 'johndoe' LIMIT 1
-  } catch (error) {}
+    
+  
 };

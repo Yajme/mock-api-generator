@@ -17,20 +17,21 @@ export interface ApiKey {
   last_used_at: Date | null;
 }
 
-export interface SchemaField {
+
+export interface ISchemaField {
   name: string;
   fakerType: string;
-  options?: Record<string, unknown>;
+  options?: unknown;
 }
 
-export interface Schema {
-  id: string;
-  owner_id: string | null;
+export interface ISchema {
+  id?: string;
   name: string;
   is_preset: boolean;
-  fields: SchemaField[];
-  created_at: Date;
+  fields: ISchemaField[];
+  owner_id: string | null;
 }
+
 
 export interface Endpoint {
   id: string;

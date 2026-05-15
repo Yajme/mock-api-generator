@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
 import { HttpStatus } from "../utils";
+import { DatabaseError } from "pg";
 interface ErrorWithStatus extends Error {
   status?: number;
   statusCode?: number;
@@ -19,6 +20,12 @@ export const errorHandler = (
 
   const status = err.status || err.statusCode || 500;
   const message = err.message || "Internal server error";
+    if (err instanceof DatabaseError) {
+     // handle pg-specific error
+     // e.g. error.code === "23505"
+     err.message = "Something went wrong pleases try again later";
+   }
+ 
   if (err instanceof ZodError) {
     res.status(HttpStatus.BAD_REQUEST).json({
       success: false,

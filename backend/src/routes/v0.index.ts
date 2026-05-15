@@ -34,7 +34,7 @@ router.get("/schema/:schemaName", authenticateJwt, mockController.getSchema);
 router.post("/schema/create", authenticateJwt, mockController.createUserSchema);
 
 router.post("/endpoint", authenticateJwt, mockController.createEndpoint);
-router.get("/endpoint", mockController.generateMockdata);
+// router.get("/endpoint", mockController.generateMockdata);
 
 
 //router.use(notFoundHandler)

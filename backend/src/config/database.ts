@@ -18,7 +18,7 @@ pool.on("error", (err) => {
   console.error("Postgres pool error", err);
   process.exit(1);
 });
-const connectionString = env.SUPABASE_URL;
+const connectionString = env.SUPABASE_CONNECTION_STRING;
 
 export const connection = new pg.Client({
   connectionString: connectionString,

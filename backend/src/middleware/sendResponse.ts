@@ -8,7 +8,7 @@ interface ResponseLocals {
 
 export const sendResponse = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    if (!res.locals.data) {
+    if (!res.locals.data && res.locals.status != 204) {
       return next();
     }
     res.status(res.locals.status || 200).json({

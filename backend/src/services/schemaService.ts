@@ -1,12 +1,15 @@
 // services/schemaService.ts
 import { connection } from "#src/config/database";
-import { createSchemaValidationSchema } from "#src/schema/mockDataSchema";
-import { InvalidDataError } from "#src/utils/";
-import { ISchema } from "#src/types";
+import type {
+  CreateSchema,
+  DeleteSchema,
+  UpdateSchema,
+} from "#src/schema/mockDataSchema";
+import type {
+  ISchema,
+} from "#src/types/Schema/Props"; 
 
-
-
-/// returns rows 
+/// returns rows
 export const getAllSchemas = async (
   userId: string,
   filter?: string,
@@ -34,15 +37,39 @@ export const createSchema = async ({
   is_preset,
   fields,
   owner_id,
-}: ISchema): Promise<ISchema> => {
-
-
+}: CreateSchema): Promise<ISchema> => {
   const { rows } = await connection.query(
     `INSERT INTO schemas (name, is_preset, fields, owner_id)
      VALUES ($1, $2, $3::jsonb, $4)
      RETURNING id, name, is_preset, fields, owner_id`,
-    [name, is_preset, JSON.stringify(fields), owner_id],
+    [name, is_preset ?? false, JSON.stringify(fields), owner_id],
   );
 
   return rows[0];
+};
+
+export const updateSchema = async ({
+  id,
+  name,
+  fields,
+}: UpdateSchema): Promise<ISchema> => {
+  //update name, fields
+  const query = "UPDATE schemas SET name = $1, fields = $2::jsonb WHERE id = $3 RETURNING id, name, is_preset, fields, owner_id";
+  const { rows } = await connection.query(query, [name, JSON.stringify(fields), id]);
+
+  return rows[0];
+};
+
+export const deleteSchema = async ({ schema_id, owner_id }: DeleteSchema) => {
+  const forOwner = " AND owner_id = $2";
+  let  query = "DELETE FROM schemas WHERE id = $1";
+  let params = [schema_id];
+
+  if(owner_id) {
+    query += forOwner;
+    params.push(owner_id);
+  }
+  const {rows} = await connection.query(query,params);
+
+  return rows;
 };

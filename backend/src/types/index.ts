@@ -31,7 +31,8 @@ export interface ISchema {
   fields: ISchemaField[];
   owner_id: string | null;
 }
-
+export interface ICreateSchema extends ISchema {}
+export interface IUpdateSchema extends ISchema {}
 
 export interface Endpoint {
   id: string;

@@ -1,5 +1,10 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
-import { getAllSchemas, createSchema } from "../services/schemaService.js";
+import {
+  getAllSchemas,
+  createSchema,
+  updateSchema,
+  deleteSchema,
+} from "../services/schemaService.js";
 import {
   HttpStatus,
   NotFoundError,
@@ -8,9 +13,22 @@ import {
 } from "../utils/index.js";
 import * as endpointService from "../services/endpointService.js";
 import { ICreateEndpointParams } from "#src/types/endpoint";
-import { createSchemaValidationSchema } from "#src/schema/mockDataSchema";
+import {
+  CreateSchema,
+  createSchemaValidationSchema,
+  DeleteSchema,
+  deleteSchemaValidationSchema,
+  UpdateSchema,
+  updateSchemaValidationSchema,
+} from "#src/schema/mockDataSchema";
 import { DatabaseError } from "pg";
-import { CreateEndpointBody, createEndpointSchema } from "#src/schema/endpointSchema";
+import {
+  CreateEndpointBody,
+  createEndpointSchema,
+} from "#src/schema/endpointSchema";
+import { createResource } from "./base/create-resource.js";
+import { updateResource } from "./base/update-resource.js";
+import { deleteResource } from "./base/delete-resource.js";
 
 type Params = {};
 type ResBody = {};
@@ -31,14 +49,13 @@ export const getSchema: RequestHandler<
     name: "name",
   } as const;
   try {
-    let userId = req.user?.id;
+    let userId = req.user?.sub;
     let { filter, filterBy } = req.query;
 
     if (!userId) {
       throw new NotFoundError("User ID is required");
     }
-    
-
+    //Zod validation should exist here
     const hasFilter = "filter" in req.query;
     const hasFilterBy = "filterBy" in req.query;
 
@@ -61,7 +78,7 @@ export const getSchema: RequestHandler<
     }
 
     const schemas = await getAllSchemas(userId, filter, filterBy);
-    if(schemas.length == 0) {
+    if (schemas.length == 0) {
       throw new NotFoundError(`No schema found`);
     }
     res.locals.data = { schemas };
@@ -71,64 +88,36 @@ export const getSchema: RequestHandler<
     next(error);
   }
 };
+export const createUserSchema = createResource(
+  createSchemaValidationSchema,
+  createSchema,
+  "Successfully Create User Schema",
+  (req: Request): CreateSchema => ({
+    fields: req.body.fields,
+    name: req.body.schemaName,
+    owner_id: req.user?.sub,
+    is_preset: req.body.is_preset,
+  }),
+);
+export const updateUserSchema = updateResource(
+  updateSchemaValidationSchema,
+  updateSchema,
+  "Successfully Updated User Schema",
+  (req: Request): UpdateSchema => ({
+    name: req.body.name,
+    fields: req.body.fields,
+    id: req.params.id as string
+  })
+)
 
-export const createUserSchema = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> => {
-  try {
-    const { fields: schema, schemaName, is_preset } = req.body;
-    // fields is an array check if the fields is not an array
-    const userId = req.user?.id;
-    const userSchemaObject = {
-      fields: schema,
-      name: schemaName,
-      owner_id: userId,
-      is_preset: is_preset,
-    }
-    const validationResult = createSchemaValidationSchema.safeParse(userSchemaObject);
-
-  if (!validationResult.success) {
-    const validationMessage = validationResult.error.issues
-      .map(({ path, message }) => {
-        const issuePath = path.length > 0 ? path.join(".") : "input";
-        return `${issuePath}: ${message}`;
-      })
-      .join(", ");
-
-    throw new InvalidDataError(validationMessage);
-  }
-    const userSchema = await createSchema(userSchemaObject);
-    
-    res.locals.status = HttpStatus.CREATED;
-    res.locals.message = "Schema Created Successfully";
-    res.locals.data = { userSchema };
-    next();
-  } 
-  catch (error) {
-    
-   next(error);
-  }
-};
-
-// Testing purposes
-// export const generateMockdata = async (
-//   req: Request,
-//   res: Response,
-//   next: NextFunction,
-// ): Promise<void> => {
-//   try {
-//     const userId = req.user?.id || "default";
-//     const schemas = await getAllSchemas(userId);
-//     const cachedData = generateMockData(schemas[0].fields, 10);
-//     res.locals.data = cachedData;
-//     next();
-//   } catch (error) {
-//     console.log(error);
-//     next(error);
-//   }
-// };
+export const deleteUserSchema = deleteResource(
+  deleteSchemaValidationSchema,
+  deleteSchema,
+  (req: Request): DeleteSchema => ({
+    schema_id: req.params.id as string,
+    owner_id: req.user?.sub
+  })
+)
 
 export const createEndpoint = async (
   req: Request,
@@ -150,18 +139,18 @@ export const createEndpoint = async (
       ttlSeconds: req.body.ttlSecond,
       count,
     };
-      const validationResult = createEndpointSchema.safeParse(endPointParam);
-    
-      if (!validationResult.success) {
-        const validationMessage = validationResult.error.issues
-          .map(({ path, message }) => {
-            const issuePath = path.length > 0 ? path.join(".") : "input";
-            return `${issuePath}: ${message}`;
-          })
-          .join(", ");
-    
-        throw new InvalidDataError(validationMessage);
-      }
+    const validationResult = createEndpointSchema.safeParse(endPointParam);
+
+    if (!validationResult.success) {
+      const validationMessage = validationResult.error.issues
+        .map(({ path, message }) => {
+          const issuePath = path.length > 0 ? path.join(".") : "input";
+          return `${issuePath}: ${message}`;
+        })
+        .join(", ");
+
+      throw new InvalidDataError(validationMessage);
+    }
 
     const userEndpoint =
       await endpointService.createUserEndpoint(endPointParam);
@@ -183,7 +172,26 @@ export const userEndpoint = async (
     const { username, version, endpoint } = req.params;
 
     res.locals.message = "Endpoint retrieved";
+    next();
   } catch (error) {
     next(error);
   }
 };
+
+// Testing purposes
+// export const generateMockdata = async (
+//   req: Request,
+//   res: Response,
+//   next: NextFunction,
+// ): Promise<void> => {
+//   try {
+//     const userId = req.user?.id || "default";
+//     const schemas = await getAllSchemas(userId);
+//     const cachedData = generateMockData(schemas[0].fields, 10);
+//     res.locals.data = cachedData;
+//     next();
+//   } catch (error) {
+//     console.log(error);
+//     next(error);
+//   }
+// };

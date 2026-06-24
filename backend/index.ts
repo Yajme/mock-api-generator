@@ -11,6 +11,8 @@ import {
   internalOnly,
   apiRateLimiter,
   logRequest,
+  loggerMiddleware,
+  errorLoggerMiddleware
 } from "#src/middleware";
 
 import api from "#src/routes/";
@@ -22,7 +24,7 @@ app.use(express.urlencoded({ extended: true }));
 
 //Initialize Database
 db.initDatabase();
-
+app.use(loggerMiddleware);
 app.get("/", (req, res) => {
   res.json({ message: "Hello World" });
 });
@@ -31,8 +33,8 @@ app.use("/api", logRequest, internalOnly, apiRateLimiter, api, sendResponse);
 app.use("/mock", authenticate, user, sendResponse);
 
 app.use(notFoundHandler);
+app.use(errorLoggerMiddleware);
 app.use(errorHandler);
-
 const PORT = env.PORT;
 const ENV = env.NODE_ENV;
 app.listen(PORT, () => {

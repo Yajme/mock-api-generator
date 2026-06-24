@@ -8,3 +8,4 @@ export * from "#src/middleware/rateLimit";
 export * from "#src/middleware/sendResponse";
 export * from "#src/middleware/validate";
 export * from "#src/middleware/validateUsername";
+export * from "#src/middleware/winstonLogger"

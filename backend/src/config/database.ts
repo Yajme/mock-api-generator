@@ -1,9 +1,10 @@
 import pg from "pg";
 import { env } from "#src/config/env";
 const { Pool } = pg;
+const connectionString = env.SUPABASE_CONNECTION_STRING;
 
 export const pool = new Pool({
-  connectionString: env.SUPABASE_URL,
+  connectionString: connectionString,
   max: 10, // max connections in pool
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
@@ -18,7 +19,6 @@ pool.on("error", (err) => {
   console.error("Postgres pool error", err);
   process.exit(1);
 });
-const connectionString = env.SUPABASE_CONNECTION_STRING;
 
 export const connection = new pg.Client({
   connectionString: connectionString,

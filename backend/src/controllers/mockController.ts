@@ -8,11 +8,22 @@ import {
 import {
   HttpStatus,
   NotFoundError,
+  UserError,
   generateMockData,
   InvalidDataError,
 } from "../utils/index.js";
-import * as endpointService from "../services/endpointService.js";
-import { ICreateEndpointParams } from "#src/types/endpoint";
+import {
+  userGeneratedEndpoint,
+  listUserEndpoints as listUserEndpointsService,
+  updateUserEndpoint as updateUserEndpointService,
+  deleteUserEndpoint as deleteUserEndpointService,
+  createUserEndpoint,
+} from "../services/endpointService.js";
+import {
+  ICreateEndpointParams,
+  IDeleteEndpoint,
+  IUpdateEndpoint,
+} from "#src/types/endpoint";
 import {
   CreateSchema,
   createSchemaValidationSchema,
@@ -22,9 +33,15 @@ import {
   updateSchemaValidationSchema,
 } from "#src/schema/mockDataSchema";
 import { DatabaseError } from "pg";
+import { ZodError } from "zod";
 import {
   CreateEndpointBody,
+  UpdateEndpointBody,
   createEndpointSchema,
+  deleteEndpointSchema,
+  listEndpointsQuerySchema,
+  updateEndpointSchema,
+  userEndpoint as userEndpointSchema,
 } from "#src/schema/endpointSchema";
 import { createResource } from "./base/create-resource.js";
 import { updateResource } from "./base/update-resource.js";
@@ -106,77 +123,112 @@ export const updateUserSchema = updateResource(
   (req: Request): UpdateSchema => ({
     name: req.body.name,
     fields: req.body.fields,
-    id: req.params.id as string
-  })
-)
+    id: req.params.id as string,
+  }),
+);
 
 export const deleteUserSchema = deleteResource(
   deleteSchemaValidationSchema,
   deleteSchema,
   (req: Request): DeleteSchema => ({
     schema_id: req.params.id as string,
-    owner_id: req.user?.sub
-  })
-)
-
-export const createEndpoint = async (
+    owner_id: req.user?.sub,
+  }),
+);
+export const userEndpoint = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const { endpoint, schemaId, version, count } = req.body;
-    const userId = req.user?.id;
-    if (!endpoint) {
-      throw new NotFoundError("Endpoint field must be filled");
-    }
-    //validate fields here
-    const endPointParam: CreateEndpointBody = {
-      ownerId: userId,
-      schemaId,
-      name: endpoint,
-      version,
-      ttlSeconds: req.body.ttlSecond,
-      count,
-    };
-    const validationResult = createEndpointSchema.safeParse(endPointParam);
-
-    if (!validationResult.success) {
-      const validationMessage = validationResult.error.issues
-        .map(({ path, message }) => {
-          const issuePath = path.length > 0 ? path.join(".") : "input";
-          return `${issuePath}: ${message}`;
-        })
-        .join(", ");
-
-      throw new InvalidDataError(validationMessage);
-    }
-
-    const userEndpoint =
-      await endpointService.createUserEndpoint(endPointParam);
-
-    res.locals.message = "Endpoint Successfully Created";
-    res.locals.data = { userEndpoint };
+    const params = userEndpointSchema.parse(req.params);
+    const { cachedData } = await userGeneratedEndpoint(params);
+    res.locals.status = HttpStatus.OK;
+    res.locals.message = "Endpoint retrieved";
+    res.locals.data = { cachedData };
     next();
   } catch (error) {
     next(error);
   }
 };
 
-export const userEndpoint = async (
+export const listUserEndpoints = async (
   req: Request,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
-    const { username, version, endpoint } = req.params;
+    const userId = req.user?.sub;
+    if (!userId) {
+      throw new NotFoundError("User ID is required");
+    }
 
-    res.locals.message = "Endpoint retrieved";
+    const query = listEndpointsQuerySchema.parse(req.query);
+
+    const endpoints = await listUserEndpointsService(
+      userId,
+      query.filter,
+      query.filterBy,
+    );
+    res.locals.status = HttpStatus.OK;
+    res.locals.message = "Endpoints retrieved";
+    res.locals.data = { endpoints };
     next();
   } catch (error) {
+    if (error instanceof ZodError) {
+      return next(
+        new InvalidDataError(
+          error.issues
+            .map(
+              ({ path, message }) => `${path.join(".") || "input"}: ${message}`,
+            )
+            .join(", "),
+        ),
+      );
+    }
     next(error);
   }
 };
+
+export const updateUserEndpoint = updateResource(
+  updateEndpointSchema,
+  updateUserEndpointService,
+  "Successfully Updated Endpoint",
+  (req: Request): UpdateEndpointBody => ({
+    id: req.params.id as string,
+    ownerId: req.user?.sub as string,
+    name: req.body.name,
+    schemaId: req.body.schema_id,
+    version: req.body.version,
+    count: req.body.count,
+    ttlSeconds: req.body.ttl_seconds,
+  }),
+);
+// Wraps `updateResource` so that pg unique-violation errors are translated
+// into a 409 instead of bubbling as a generic 500.
+
+export const deleteUserEndpoint = deleteResource(
+  deleteEndpointSchema,
+  deleteUserEndpointService,
+  (req: Request): IDeleteEndpoint => ({
+    id: req.params.id as string,
+    ownerId: req.user?.sub as string,
+  }),
+);
+
+export const createEndpoint = createResource(
+  createEndpointSchema,
+  createUserEndpoint,
+  "Successfully Created Endpoint for User",
+  (req: Request): CreateEndpointBody => ({
+    name: req.body.endpoint,
+    ownerId: req.user?.sub,
+    schemaId: req.body.schema_id,
+    version: req.body.version,
+    count: req.body.count,
+    ttlSeconds: req.body.ttl_seconds,
+  }),
+);
 
 // Testing purposes
 // export const generateMockdata = async (

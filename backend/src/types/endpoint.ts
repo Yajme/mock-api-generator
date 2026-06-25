@@ -11,3 +11,23 @@ export interface IEndpoint {
 export interface ICreateEndpointParams extends IEndpoint {
     count: number;
 }
+
+export interface IUpdateEndpoint {
+  id: string;
+  ownerId: string;
+  name?: string;
+  schemaId?: string;
+  version?: string;
+  ttlSeconds?: number;
+  count?: number;
+}
+
+export interface IDeleteEndpoint {
+  id: string;
+  ownerId: string;
+}
+
+export interface IListEndpointQuery {
+  filter?: string;
+  filterBy?: string;
+}
